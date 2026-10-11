@@ -1,0 +1,16 @@
+# 构建产物
+bin/
+obj/
+dist/
+release/
+artifacts/
+
+# 用户数据 / 临时文件
+*.user
+*.suo
+.vs/
+*.binlog
+*.log
+
+# 说明：assets\LTFC.ico 由 tools\make-icon.ps1 从品牌图片生成，属于构建产物但也随源码提交
+# （安装包与 exe 需要它，缺失时构建脚本会自动生成）

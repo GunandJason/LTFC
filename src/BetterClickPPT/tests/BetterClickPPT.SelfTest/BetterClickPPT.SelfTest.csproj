@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>BetterClickPPT.SelfTest</RootNamespace>
+    <AssemblyName>BetterClickPPT.SelfTest</AssemblyName>
+    <Platforms>AnyCPU;x64</Platforms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BetterClickPPT.Core\BetterClickPPT.Core.csproj" />
+    <!-- 仅为了按顺序生成模拟放映程序，实际测试通过独立进程运行它 -->
+    <ProjectReference Include="..\BetterClickPPT.MockShow\BetterClickPPT.MockShow.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+
+  <!-- 把模拟放映程序（独立进程）复制到本项目的输出目录 mock\ 下，供端到端测试启动 -->
+  <Target Name="CopyMockShowApp" AfterTargets="Build">
+    <ItemGroup>
+      <MockShowFiles Include="$(MSBuildThisFileDirectory)..\BetterClickPPT.MockShow\bin\$(Configuration)\$(TargetFramework)\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(MockShowFiles)" DestinationFolder="$(OutDir)mock\%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

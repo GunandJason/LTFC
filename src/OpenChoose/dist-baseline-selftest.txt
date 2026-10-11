@@ -1,0 +1,34 @@
+﻿OpenChoose / PPTChooser 诊断报告
+生成时间: 2026-10-01 18:04:17
+程序路径: C:\Users\Admin\Desktop\LTFC\src\OpenChoose\src\PPTChooser\bin\Release\PPTChooser.exe
+程序版本: 1.0.0.0
+目标框架: .NETFramework,Version=v4.5
+CLR 版本: 4.0.30319.42000
+操作系统: Microsoft Windows NT 10.0.26100.0 (64 位)
+系统 DPI: 240 DPI（250%），界面倍率(--scale): 1
+.NET Framework(注册表): 4.8.09221 (Release=533509)
+
+[检测到的 PPT 程序]
+PowerPoint: C:\Program Files\Microsoft Office\Root\Office16\POWERPNT.EXE (存在)
+WPS Office: 未检测到
+LibreOffice Impress: 未检测到
+
+[文件关联]
+本程序已注册为 PPT 打开方式: 否
+.ppt: 生效 ProgID=PowerPoint.Show.8 | UserChoice=(无) | 打开命令="C:\Program Files\Microsoft Office\Root\Office16\POWERPNT.EXE" "%1" /ou "%u"
+.pptx: 生效 ProgID=OpenChoose.PPT | UserChoice=OpenChoose.PPT | 打开命令=(无)
+.pps: 生效 ProgID=PowerPoint.SlideShow.8 | UserChoice=(无) | 打开命令="C:\Program Files\Microsoft Office\Root\Office16\POWERPNT.EXE" /s "%1" /ou "%u"
+.ppsx: 生效 ProgID=PowerPoint.SlideShow.12 | UserChoice=(无) | 打开命令="C:\Program Files\Microsoft Office\Root\Office16\POWERPNT.EXE" /s "%1" /ou "%u"
+.pot: 生效 ProgID=PowerPoint.Template.8 | UserChoice=(无) | 打开命令="C:\Program Files\Microsoft Office\Root\Office16\POWERPNT.EXE" "%1" /ou "%u"
+.potx: 生效 ProgID=PowerPoint.Template.12 | UserChoice=(无) | 打开命令="C:\Program Files\Microsoft Office\Root\Office16\POWERPNT.EXE" "%1" /ou "%u"
+
+[开机自启动]
+状态: 未启用
+命令: (无)
+
+[配置]
+配置文件: C:\Users\Admin\AppData\Roaming\OpenChoose\settings.ini
+记住选择: 否
+
+[日志文件]
+C:\Users\Admin\AppData\Roaming\OpenChoose\log.txt

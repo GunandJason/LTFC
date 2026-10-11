@@ -1,0 +1,16 @@
+# 构建输出
+bin/
+obj/
+dist/
+artifacts/
+
+# VS / VS Code
+.vs/
+.idea/
+*.user
+*.suo
+
+# 测试与运行产物
+*.log
+*.old
+TestResults/

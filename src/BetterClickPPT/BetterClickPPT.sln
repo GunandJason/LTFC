@@ -1,0 +1,50 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{407C64D5-A7F5-4A6B-B75B-921DBE4584F7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BetterClickPPT.Core", "src\BetterClickPPT.Core\BetterClickPPT.Core.csproj", "{20F4283B-1065-4E1F-88B7-D607D776046E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BetterClickPPT.App", "src\BetterClickPPT.App\BetterClickPPT.App.csproj", "{18FB7ED0-CE4B-4639-B5E7-8595E8385D0A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{3815F316-AA43-4632-9828-6A91EEA3DE81}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BetterClickPPT.MockShow", "tests\BetterClickPPT.MockShow\BetterClickPPT.MockShow.csproj", "{8E9BBEB8-3EF6-4B5F-ABE0-88A72E3E8442}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BetterClickPPT.SelfTest", "tests\BetterClickPPT.SelfTest\BetterClickPPT.SelfTest.csproj", "{A5D8B999-ABC8-4346-9527-D8393CC9343B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{20F4283B-1065-4E1F-88B7-D607D776046E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{20F4283B-1065-4E1F-88B7-D607D776046E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{20F4283B-1065-4E1F-88B7-D607D776046E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{20F4283B-1065-4E1F-88B7-D607D776046E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{18FB7ED0-CE4B-4639-B5E7-8595E8385D0A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{18FB7ED0-CE4B-4639-B5E7-8595E8385D0A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{18FB7ED0-CE4B-4639-B5E7-8595E8385D0A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{18FB7ED0-CE4B-4639-B5E7-8595E8385D0A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8E9BBEB8-3EF6-4B5F-ABE0-88A72E3E8442}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8E9BBEB8-3EF6-4B5F-ABE0-88A72E3E8442}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8E9BBEB8-3EF6-4B5F-ABE0-88A72E3E8442}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8E9BBEB8-3EF6-4B5F-ABE0-88A72E3E8442}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A5D8B999-ABC8-4346-9527-D8393CC9343B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A5D8B999-ABC8-4346-9527-D8393CC9343B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A5D8B999-ABC8-4346-9527-D8393CC9343B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A5D8B999-ABC8-4346-9527-D8393CC9343B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{20F4283B-1065-4E1F-88B7-D607D776046E} = {407C64D5-A7F5-4A6B-B75B-921DBE4584F7}
+		{18FB7ED0-CE4B-4639-B5E7-8595E8385D0A} = {407C64D5-A7F5-4A6B-B75B-921DBE4584F7}
+		{8E9BBEB8-3EF6-4B5F-ABE0-88A72E3E8442} = {3815F316-AA43-4632-9828-6A91EEA3DE81}
+		{A5D8B999-ABC8-4346-9527-D8393CC9343B} = {3815F316-AA43-4632-9828-6A91EEA3DE81}
+	EndGlobalSection
+EndGlobal

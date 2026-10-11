@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>BetterClickPPT.Core</RootNamespace>
+    <AssemblyName>BetterClickPPT.Core</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Platforms>AnyCPU;x64</Platforms>
+    <!-- 「触摸 / 鼠标模式」自动切换使用托管 UI Automation（System.Windows.Automation），
+         该命名空间由桌面框架的 WPF 配置提供，因此这里必须开启 UseWPF（只引用程序集，不使用任何 XAML）。
+         注意：UseWPF 会把隐式 using 集合换成 WPF 版（不含 System.IO / System.Net.Http），
+         所以这里显式补回 .NET 默认集合，避免在既有的大量文件中逐个添加 using。 -->
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="System.IO" />
+    <Using Include="System.Net.Http" />
+  </ItemGroup>
+
+</Project>

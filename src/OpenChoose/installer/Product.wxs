@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  OpenChoose / PPTChooser 安装包（WiX 5，每用户安装，无需管理员权限）
+  安装内容：
+    * %LOCALAPPDATA%\OpenChoose\PPTChooser.exe
+    * 文件关联（HKCU\Software\Classes）：OpenChoose.PPT、Applications\PPTChooser.exe、
+      .ppt/.pptx/.pps/.ppsx/.pot/.potx 的“打开方式”列表、右键菜单、应用功能注册
+    * .ppt / .pptx 默认打开方式指向本程序（Windows 10/11 的 UserChoice 由系统保护，需用户在设置里确认）
+    * 开机自启动：HKCU\...\CurrentVersion\Run\OpenChoose = "…\PPTChooser.exe"（带 startup 参数）
+    * 开始菜单快捷方式：OpenChoose / 设为默认打开方式 / 诊断报告
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <Package Name="OpenChoose"
+           Manufacturer="OpenChoose"
+           Version="1.0.0.0"
+           UpgradeCode="{E1B4F7A2-3C5D-4B8E-9A61-2D7F0C4B5E93}"
+           Scope="perUser"
+           Compressed="yes"
+           Codepage="936"
+           Language="2052">
+
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="本机已安装了更新版本的 OpenChoose。" />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="..\src\PPTChooser\Resources\app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPCOMMENTS" Value="双击 PPT 文件时选择用 PowerPoint、WPS 或其它程序打开" />
+
+    <!-- 自动生成安装日志（%TEMP%\MSI*.log）：安装失败时可直接查看原因 -->
+    <Property Id="MsiLogging" Value="voicewarmupx" />
+
+    <!-- 安装/卸载时若程序或托盘仍在运行：先友好关闭，2 秒后强制结束，
+         避免“文件正在使用”导致安装失败 -->
+    <util:CloseApplication Id="CloseRunningApp"
+                           Target="PPTChooser.exe"
+                           CloseMessage="no"
+                           RebootPrompt="no"
+                           PromptToContinue="no"
+                           TerminateProcess="2" />
+
+    <!-- 带界面的安装向导：欢迎 → 安装 → 完成；
+         再次运行同一个 MSI 会进入“修复 / 删除”界面，而不是静默重装 -->
+    <ui:WixUI Id="WixUI_Minimal" />
+    <WixVariable Id="WixUIBannerBmp" Value="WixUIBannerBmp.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="WixUIDialogBmp.bmp" />
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    <WixVariable Id="WixUI_EXITDIALOGOPTIONALTEXT"
+                 Value="提示：如果双击 PPT 文件没有弹出选择窗口，请打开“设置 → 应用 → 默认应用”，把 .pptx / .ppt 关联到“OpenChoose（PPT 打开方式选择器）”。Windows 10/11 会保护默认应用设置，需要手动确认一次。" />
+
+    <!-- 需要 .NET Framework 4.5 或更高版本（本程序基于 net4.5 构建）；
+         同时检查 64 / 32 位注册表视图，避免误判 -->
+    <Property Id="NETFRAMEWORK45RELEASE64">
+      <RegistrySearch Id="SearchNetFx45Release64"
+                      Root="HKLM"
+                      Key="SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full"
+                      Name="Release"
+                      Type="raw"
+                      Bitness="always64" />
+    </Property>
+    <Property Id="NETFRAMEWORK45RELEASE32">
+      <RegistrySearch Id="SearchNetFx45Release32"
+                      Root="HKLM"
+                      Key="SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full"
+                      Name="Release"
+                      Type="raw"
+                      Bitness="always32" />
+    </Property>
+    <Launch Condition="Installed or NETFRAMEWORK45RELEASE64 or NETFRAMEWORK45RELEASE32"
+            Message="OpenChoose 需要 Microsoft .NET Framework 4.5 或更高版本（Windows 10/11 已自带）。请安装后重试。" />
+
+    <Feature Id="Main" Title="OpenChoose - PPT 打开方式选择器" Level="1">
+      <ComponentGroupRef Id="ProgramComponents" />
+      <ComponentGroupRef Id="ExtensionComponents" />
+      <ComponentGroupRef Id="AssociationComponents" />
+      <ComponentGroupRef Id="AutostartComponents" />
+      <ComponentGroupRef Id="ShortcutComponents" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="OpenChoose" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramsFolder" Name="OpenChoose" />
+    </StandardDirectory>
+  </Fragment>
+
+  <!-- 程序文件 -->
+  <Fragment>
+    <ComponentGroup Id="ProgramComponents">
+      <Component Id="MainExecutable" Directory="INSTALLFOLDER" Guid="{2B7C1D94-58A3-4E16-8F72-9C4D6A1E3B75}">
+        <File Id="PPTChooserExe"
+              Source="..\src\PPTChooser\bin\Release\PPTChooser.exe"
+              KeyPath="yes" />
+        <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- 开始菜单快捷方式 -->
+  <Fragment>
+    <ComponentGroup Id="ShortcutComponents">
+      <Component Id="StartMenuShortcuts" Directory="ProgramsFolder" Guid="{6F4A9C22-7D15-4B63-9E8A-1C2D5B7F0A34}">
+        <Shortcut Id="ShortcutChooser"
+                  Name="OpenChoose（选择打开 PPT 的程序）"
+                  Description="选择用哪个程序打开 PPT"
+                  Target="[INSTALLFOLDER]PPTChooser.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <Shortcut Id="ShortcutSetDefault"
+                  Name="设为默认打开方式"
+                  Description="把 OpenChoose 设为 .ppt / .pptx 的默认打开方式"
+                  Target="[INSTALLFOLDER]PPTChooser.exe"
+                  Arguments="--setdefault"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <Shortcut Id="ShortcutDiagnostics"
+                  Name="诊断报告"
+                  Description="检测本机的 PPT 程序与文件关联状态"
+                  Target="[INSTALLFOLDER]PPTChooser.exe"
+                  Arguments="--selftest"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RemoveFolder Id="RemoveProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\OpenChooseSetup"
+                       Name="StartMenuShortcuts"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- 开机自启动 -->
+  <Fragment>
+    <ComponentGroup Id="AutostartComponents">
+      <Component Id="AutostartComponent" Directory="INSTALLFOLDER" Guid="{4A8D2E36-91C7-4F5B-8E03-7B6D1C9A5F28}">
+        <RegistryValue Root="HKCU"
+                       Key="Software\Microsoft\Windows\CurrentVersion\Run"
+                       Name="OpenChoose"
+                       Type="string"
+                       Value="&quot;[INSTALLFOLDER]PPTChooser.exe&quot; --startup"
+                       KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- 文件关联：ProgID + 应用注册 + 应用功能 -->
+  <Fragment>
+    <ComponentGroup Id="AssociationComponents">
+
+      <Component Id="ProgIdComponent" Directory="INSTALLFOLDER" Guid="{9D3E6B18-2A47-4C59-8B60-5F1E7D2A4C83}">
+        <RegistryKey Root="HKCU" Key="Software\Classes\OpenChoose.PPT">
+          <RegistryValue Type="string" Value="OpenChoose（PPT 打开方式选择器）" KeyPath="yes" />
+          <RegistryKey Key="DefaultIcon">
+            <RegistryValue Type="string" Value="[INSTALLFOLDER]PPTChooser.exe,0" />
+          </RegistryKey>
+          <RegistryKey Key="shell\open\command">
+            <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]PPTChooser.exe&quot; &quot;%1&quot;" />
+          </RegistryKey>
+        </RegistryKey>
+      </Component>
+
+      <Component Id="ApplicationComponent" Directory="INSTALLFOLDER" Guid="{C5A71F83-3E96-4D2A-B1F4-6A0C8E7D2934}">
+        <RegistryKey Root="HKCU" Key="Software\Classes\Applications\PPTChooser.exe">
+          <RegistryValue Name="FriendlyAppName" Type="string" Value="OpenChoose（PPT 打开方式选择器）" KeyPath="yes" />
+          <RegistryKey Key="DefaultIcon">
+            <RegistryValue Type="string" Value="[INSTALLFOLDER]PPTChooser.exe,0" />
+          </RegistryKey>
+          <RegistryKey Key="shell\open\command">
+            <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]PPTChooser.exe&quot; &quot;%1&quot;" />
+          </RegistryKey>
+          <RegistryKey Key="SupportedTypes">
+            <RegistryValue Name=".ppt" Type="string" Value="" />
+            <RegistryValue Name=".pptx" Type="string" Value="" />
+            <RegistryValue Name=".pps" Type="string" Value="" />
+            <RegistryValue Name=".ppsx" Type="string" Value="" />
+            <RegistryValue Name=".pot" Type="string" Value="" />
+            <RegistryValue Name=".potx" Type="string" Value="" />
+          </RegistryKey>
+        </RegistryKey>
+      </Component>
+
+      <Component Id="CapabilitiesComponent" Directory="INSTALLFOLDER" Guid="{7B2E0A64-8C51-4D97-9F3A-2E5B1A7C6D08}">
+        <RegistryKey Root="HKCU" Key="Software\OpenChoose\Capabilities">
+          <RegistryValue Name="ApplicationName" Type="string" Value="OpenChoose" KeyPath="yes" />
+          <RegistryValue Name="ApplicationDescription" Type="string" Value="双击 PPT 时选择用 PowerPoint、WPS 或其它程序打开" />
+          <RegistryKey Key="FileAssociations">
+            <RegistryValue Name=".ppt" Type="string" Value="OpenChoose.PPT" />
+            <RegistryValue Name=".pptx" Type="string" Value="OpenChoose.PPT" />
+            <RegistryValue Name=".pps" Type="string" Value="OpenChoose.PPT" />
+            <RegistryValue Name=".ppsx" Type="string" Value="OpenChoose.PPT" />
+            <RegistryValue Name=".pot" Type="string" Value="OpenChoose.PPT" />
+            <RegistryValue Name=".potx" Type="string" Value="OpenChoose.PPT" />
+          </RegistryKey>
+        </RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\RegisteredApplications">
+          <RegistryValue Name="OpenChoose" Type="string" Value="Software\OpenChoose\Capabilities" />
+        </RegistryKey>
+      </Component>
+
+      <Component Id="DefaultAssociationComponent" Directory="INSTALLFOLDER" Guid="{1E7C4B29-5A3F-4D68-8C1B-9F2D6E3A7B45}">
+        <!-- 把 .ppt / .pptx 的默认打开方式指向本程序（若无受保护的 UserChoice，即生效） -->
+        <RegistryValue Root="HKCU" Key="Software\Classes\.ppt" Type="string" Value="OpenChoose.PPT" KeyPath="yes" />
+        <RegistryValue Root="HKCU" Key="Software\Classes\.pptx" Type="string" Value="OpenChoose.PPT" />
+      </Component>
+
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- 各扩展名的“打开方式”列表与右键菜单 -->
+  <Fragment>
+    <ComponentGroup Id="ExtensionComponents">
+      <Component Id="ExtensionAssociations" Directory="INSTALLFOLDER" Guid="{3C8F1A57-6B24-4E90-8D7C-5A9E2F4B6C17}">
+
+        <RegistryKey Root="HKCU" Key="Software\Classes\.ppt\OpenWithProgids">
+          <RegistryValue Name="OpenChoose.PPT" Type="string" Value="" KeyPath="yes" />
+        </RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\.ppt\OpenWithList">
+          <RegistryValue Name="PPTChooser.exe" Type="string" Value="" />
+        </RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\.ppt\shell\OpenChoose">
+          <RegistryValue Type="string" Value="用 OpenChoose 选择打开方式" />
+          <RegistryValue Name="Icon" Type="string" Value="[INSTALLFOLDER]PPTChooser.exe,0" />
+          <RegistryKey Key="command">
+            <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]PPTChooser.exe&quot; &quot;%1&quot;" />
+          </RegistryKey>
+        </RegistryKey>
+
+        <RegistryKey Root="HKCU" Key="Software\Classes\.pptx\OpenWithProgids">
+          <RegistryValue Name="OpenChoose.PPT" Type="string" Value="" />
+        </RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\.pptx\OpenWithList">
+          <RegistryValue Name="PPTChooser.exe" Type="string" Value="" />
+        </RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\.pptx\shell\OpenChoose">
+          <RegistryValue Type="string" Value="用 OpenChoose 选择打开方式" />
+          <RegistryValue Name="Icon" Type="string" Value="[INSTALLFOLDER]PPTChooser.exe,0" />
+          <RegistryKey Key="command">
+            <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]PPTChooser.exe&quot; &quot;%1&quot;" />
+          </RegistryKey>
+        </RegistryKey>
+
+        <RegistryKey Root="HKCU" Key="Software\Classes\.pps\OpenWithProgids">
+          <RegistryValue Name="OpenChoose.PPT" Type="string" Value="" />
+        </RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\.pps\OpenWithList">
+          <RegistryValue Name="PPTChooser.exe" Type="string" Value="" />
+        </RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\.ppsx\OpenWithProgids">
+          <RegistryValue Name="OpenChoose.PPT" Type="string" Value="" />
+        </RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\.ppsx\OpenWithList">
+          <RegistryValue Name="PPTChooser.exe" Type="string" Value="" />
+        </RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\.pot\OpenWithProgids">
+          <RegistryValue Name="OpenChoose.PPT" Type="string" Value="" />
+        </RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\.pot\OpenWithList">
+          <RegistryValue Name="PPTChooser.exe" Type="string" Value="" />
+        </RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\.potx\OpenWithProgids">
+          <RegistryValue Name="OpenChoose.PPT" Type="string" Value="" />
+        </RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\.potx\OpenWithList">
+          <RegistryValue Name="PPTChooser.exe" Type="string" Value="" />
+        </RegistryKey>
+
+        <!-- 资源管理器的“打开方式”记录 -->
+        <RegistryKey Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.ppt\OpenWithProgids">
+          <RegistryValue Name="OpenChoose.PPT" Type="string" Value="" />
+        </RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.pptx\OpenWithProgids">
+          <RegistryValue Name="OpenChoose.PPT" Type="string" Value="" />
+        </RegistryKey>
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>
