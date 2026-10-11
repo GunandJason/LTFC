@@ -1,0 +1,25 @@
+Lots_Tools_For_Class（LTFC）—— 软件许可（摘要）
+
+本安装包包含 LTFC 主程序、内置资源，以及两个内置模块（ClassTell 邮箱指令通知、
+OpenChoose 打开方式选择器）；构建时如包含视频下载，还会带有第三方的视频下载工具
+（4K Video Downloader Plus 便携版）。AutoNotice 定时提醒是 LTFC 的内部模块，
+没有独立程序文件，也不需要单独授权。
+
+  · ClassTell 以 GNU Affero 通用公共许可证第 3 版（AGPL-3.0）发布，完整的许可条款
+    见其项目仓库中的许可文件，或访问：https://www.gnu.org/licenses/agpl-3.0.html
+  · OpenChoose 是免费软件，可自由使用与再分发，具体条款见其项目仓库中的许可文件。
+  · 视频下载工具是第三方便携程序，使用前请遵守它自身的许可与使用条款。
+  · 以上程序都按“现状”提供，不附带任何明示或默示的担保。
+
+商用授权与合作请联系：qe_ge@outlook.com
+
+安装程序会做的事：
+  · 把程序文件复制到安装目录（默认 C:\Program Files\LTFC）；
+  · 按你的选择创建开始菜单 / 桌面快捷方式；
+  · 默认卸载旧的独立 ClassTell 安装包（ClassTell 邮箱指令通知 1.0.0），改由 LTFC
+    内置的同名模块接管；你的个人设置仍保留在 %APPDATA%\ClassTell 与 %APPDATA%\LTFC，
+    不会被删除。
+
+其余设置（收信方式、开机自启动、配色、提醒配置等）都由程序在运行时写入当前用户目录
+（%APPDATA%\LTFC 与 HKCU 注册表）；卸载时会一并清理 LTFC 的自启动项，
+个人设置目录则保留，方便重装后继续使用。

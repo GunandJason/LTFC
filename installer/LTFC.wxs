@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Lots_Tools_For_Class（LTFC）—— 安装包定义（正式版 v1.0.2_r）
+  构建脚本：installer\build-msi.ps1（把 dist 暂存到 installer\.stage 后调用 wix build）
+
+  本安装包要点：
+    1) 每机器安装（perMachine），默认装到 C:\Program Files\LTFC。
+       LTFC 的模块路径（modules\ClassTell、modules\OpenChoose、VideoDownload、assets）
+       全部相对于 LTFC.exe 所在目录，所以安装目录必须保持与发布包 dist 相同的结构。
+    2) 内置模块 ClassTell、OpenChoose 与主程序一起安装（功能树里默认勾选），
+       安装完即可从 LTFC 侧边栏直接使用，用户不需要另外安装子程序。
+    3) 默认覆盖安装原来的 ClassTell：下面那条 Upgrade 记录用的就是旧 ClassTell 安装包的
+       UpgradeCode（“ClassTell 邮箱指令通知 1.0.0”），Windows Installer 会把它算作“被升级产品”，
+       安装 LTFC 时自动先卸载旧包，再由 modules\ClassTell 里的内置模块接管，
+       用户不需要先手动卸载旧版（也不会出现两套 ClassTell 并存）。
+    4) 视频下载（4K Video Downloader Plus 便携版，约 800 MB）是可选组件：
+       只有构建时加 -IncludeVideoDownload 才会打进安装包，否则安装包里没有它的文件。
+    5) AutoNotice 是 LTFC 的内部模块（没有独立程序文件），它的配置文件必须是用户可写的，
+       所以刻意不把 command.txt 装到安装目录（Program Files 普通用户不可写）；
+       程序首次打开「AutoNotice → 设置」时会自动在 %APPDATA%\LTFC\AutoNotice\command.txt
+       生成同款示例模板，并且随时可编辑。
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+<?ifndef IncludeVideoDownload?>
+  <?define IncludeVideoDownload = "no"?>
+<?endif?>
+
+  <Package Name="Lots_Tools_For_Class（LTFC）"
+           Manufacturer="LTFC"
+           Version="1.0.2"
+           Language="2052"
+           Codepage="936"
+           UpgradeCode="5f2a8c41-7d63-4b19-8e07-3a6c9d14f8b2"
+           Scope="perMachine"
+           Compressed="yes">
+
+    <SummaryInformation Description="Lots_Tools_For_Class（LTFC）安装程序：一个入口管理课堂小工具（ClassTell / OpenChoose / AutoNotice / 视频下载）"
+                        Manufacturer="LTFC" />
+
+    <!-- 以后发布新版本时覆盖安装本产品（AllowSameVersionUpgrades 让 1.0.2 也能覆盖 1.0.2 重装） -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="已安装更高版本的 LTFC，请先卸载后再安装本版本。" />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <!--
+      默认覆盖安装原来的 ClassTell（旧的独立安装包，perMachine）：
+        · UpgradeCode {7C9A4E1B-2D3F-4A55-9E6C-1B0F5D2A7C33} 取自 src\ClassTell\installer\ClassTell.wxs；
+        · 版本区间 0.0.0–1.0.0（含两端）覆盖已发布的 ClassTell 1.0.0；
+        · MigrateFeatures="no"：旧包的功能名与 LTFC 不同，不需要把功能选择带过来；
+        · 不用 OnlyDetect：命中后由 RemoveExistingProducts 真正卸载旧包。
+      这条记录与上面的 MajorUpgrade 共用同一个 RemoveExistingProducts 动作，
+      所以顺序是：关闭在跑的程序 → 卸载旧 ClassTell → 安装 LTFC（含内置 ClassTell 模块）。
+      用户的个人配置（%APPDATA%\ClassTell、%APPDATA%\LTFC）不受影响，卸载旧包时会清掉它的自启动项。
+    -->
+    <Upgrade Id="7c9a4e1b-2d3f-4a55-9e6c-1b0f5d2a7c33">
+      <UpgradeVersion Minimum="0.0.0" Maximum="1.0.0" IncludeMinimum="yes" IncludeMaximum="yes"
+                      Property="OLD_CLASSTELL_FOUND" MigrateFeatures="no" IgnoreRemoveFailure="no" />
+    </Upgrade>
+
+    <!--
+      安装/覆盖前请正在运行的程序退出，避免文件被占用（含旧 ClassTell 的托盘进程）。
+      注意：util:CloseApplication 在 WiX v5 里的合法父元素是 Package，不能放进 Component。
+      LTFC 用 HKCU\...\Run\LTFC 做开机自启动，升级时被结束后下次开机照旧会起来。
+    -->
+    <util:CloseApplication Id="CloseRunningLtfc" Target="LTFC.exe"
+                           CloseMessage="no" TerminateProcess="1" RebootPrompt="no" />
+    <util:CloseApplication Id="CloseRunningClassTell" Target="ClassTell.exe"
+                           CloseMessage="no" TerminateProcess="1" RebootPrompt="no" />
+
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+    <Property Id="ARPHELPLINK" Value="mailto:qe_ge@outlook.com" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+    <Property Id="ARPCOMMENTS"
+              Value="一个入口集中管理课堂小工具：ClassTell 邮箱指令通知、OpenChoose 打开方式选择器、AutoNotice 定时提醒、视频下载。安装时会默认接管旧版独立安装的 ClassTell（自动卸载旧包）。" />
+
+    <!-- 功能树界面：安装目录固定为 Program Files\LTFC（模块路径依赖这个结构） -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+    <ui:WixUI Id="WixUI_FeatureTree" />
+
+    <Icon Id="AppIcon.ico" SourceFile="..\assets\LTFC.ico" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="LTFC">
+        <Directory Id="AssetsDir" Name="assets" />
+        <Directory Id="ModulesDir" Name="modules">
+          <Directory Id="ClassTellModuleDir" Name="ClassTell" />
+          <Directory Id="OpenChooseModuleDir" Name="OpenChoose" />
+        </Directory>
+<?if $(var.IncludeVideoDownload) = "yes"?>
+        <Directory Id="VideoDownloadDir" Name="VideoDownload" />
+<?endif?>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppMenuFolder" Name="LTFC" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!-- ============ 主程序与内置资源 ============ -->
+    <!-- 暂存目录 .stage 的结构 = 发布包 dist 的结构；通配符的基准目录就是 .stage 下对应的那一层 -->
+    <ComponentGroup Id="MainProgramFiles" Directory="INSTALLFOLDER">
+      <Files Include=".stage\*.exe" />
+    </ComponentGroup>
+    <ComponentGroup Id="MainLibraryFiles" Directory="INSTALLFOLDER">
+      <Files Include=".stage\*.dll" />
+    </ComponentGroup>
+    <ComponentGroup Id="MainConfigFiles" Directory="INSTALLFOLDER">
+      <Files Include=".stage\*.config" />
+    </ComponentGroup>
+    <ComponentGroup Id="AssetFiles" Directory="AssetsDir">
+      <Files Include=".stage\assets\*" />
+    </ComponentGroup>
+    <ComponentGroup Id="MainDocFiles" Directory="INSTALLFOLDER">
+      <Files Include=".stage\*.txt" />
+    </ComponentGroup>
+    <ComponentGroup Id="ClassTellFiles" Directory="ClassTellModuleDir">
+      <Files Include=".stage\modules\ClassTell\*" />
+    </ComponentGroup>
+    <ComponentGroup Id="OpenChooseFiles" Directory="OpenChooseModuleDir">
+      <Files Include=".stage\modules\OpenChoose\*" />
+    </ComponentGroup>
+<?if $(var.IncludeVideoDownload) = "yes"?>
+    <ComponentGroup Id="VideoDownloadFiles" Directory="VideoDownloadDir">
+      <Files Include=".stage\VideoDownload\**" />
+    </ComponentGroup>
+<?endif?>
+
+    <!-- ============ 开始菜单快捷方式 + 卸载入口 ============ -->
+    <Component Id="StartMenuShortcut" Directory="AppMenuFolder" Guid="3f6b2c58-9d14-4a7e-b2e3-5c8a1d47f690">
+      <Shortcut Id="StartMenuShortcutLnk" Name="LTFC"
+                Description="Lots_Tools_For_Class（LTFC）"
+                Target="[INSTALLFOLDER]LTFC.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.ico" />
+      <Shortcut Id="StartMenuUninstallLnk" Name="卸载 LTFC"
+                Description="卸载 Lots_Tools_For_Class（LTFC）"
+                Target="[SystemFolder]msiexec.exe" Arguments="/x [ProductCode]" Icon="AppIcon.ico" />
+      <RemoveFolder Id="RemoveAppMenuFolder" Directory="AppMenuFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\LTFC" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <!-- ============ 桌面快捷方式（功能树里可取消勾选） ============ -->
+    <Component Id="DesktopShortcut" Directory="DesktopFolder" Guid="8a1d5e73-2c64-4f90-9b37-6e2d4c81a05b">
+      <Shortcut Id="DesktopShortcutLnk" Name="LTFC"
+                Description="Lots_Tools_For_Class（LTFC）"
+                Target="[INSTALLFOLDER]LTFC.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.ico" />
+      <RegistryValue Root="HKCU" Key="Software\LTFC" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <!-- ============ 运行期集成：卸载时清理自启动项 ============ -->
+    <Component Id="RuntimeIntegration" Directory="INSTALLFOLDER" Guid="c47e9b21-6a83-4d5f-8e12-3b7c0a6d9e48">
+      <!-- 卸载时清掉 LTFC 的自启动项（与 src\LTFC\LTFC.Core\Core\Startup.cs 写入的项同名） -->
+      <RemoveRegistryValue Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="LTFC" />
+      <RegistryValue Root="HKCU" Key="Software\LTFC" Name="RuntimeIntegration" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <!-- ============ 功能树 ============ -->
+    <Feature Id="MainProgram" Title="LTFC 主程序（必需）" Level="1" AllowAbsent="no"
+             Description="主界面、系统托盘、总设置，以及内置资源 assets（图标、赞赏码）。">
+      <ComponentGroupRef Id="MainProgramFiles" />
+      <ComponentGroupRef Id="MainLibraryFiles" />
+      <ComponentGroupRef Id="MainConfigFiles" />
+      <ComponentGroupRef Id="AssetFiles" />
+      <ComponentGroupRef Id="MainDocFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="RuntimeIntegration" />
+    </Feature>
+
+    <Feature Id="ClassTellModule" Title="ClassTell 邮箱指令通知（内置模块）" Level="1"
+             Description="把邮件当作远程指令：收到 C 类邮件弹系统通知，T 类只进消息列表；带“过期”页查看打开软件之前的未读邮件。安装本项时，旧版独立安装的 ClassTell 会被自动卸载并由这里的模块接管。">
+      <ComponentGroupRef Id="ClassTellFiles" />
+    </Feature>
+
+    <Feature Id="OpenChooseModule" Title="OpenChoose 打开方式选择器（内置模块）" Level="1"
+             Description="双击演示文稿时选择用哪个程序打开（PPT / WPS / LibreOffice 等），可自定义软件列表。">
+      <ComponentGroupRef Id="OpenChooseFiles" />
+    </Feature>
+
+    <Feature Id="DesktopShortcutFeature" Title="桌面快捷方式" Level="1"
+             Description="在桌面创建一个 LTFC 快捷方式。">
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+
+<?if $(var.IncludeVideoDownload) = "yes"?>
+    <Feature Id="VideoDownloadFeature" Title="视频下载工具（可选，约 800 MB）" Level="1"
+             Description="4K Video Downloader Plus 便携版，粘贴链接即可下载，独立窗口运行、不套用 LTFC 主题。取消勾选则不安装。">
+      <ComponentGroupRef Id="VideoDownloadFiles" />
+    </Feature>
+<?endif?>
+
+  </Package>
+</Wix>

@@ -5,16 +5,20 @@
 #   2) 编译解决方案（LTFC + ClassTell + OpenChoose）
 #   3) 运行各模块自测（可 -SkipTests 跳过）
 #   4) 发布到 dist\（LTFC.exe + 子程序 + 文档）
+#   5) 生成安装包 release\LTFC-<版本>_r.msi（可 -SkipMsi 跳过）
 #
 # 用法：
 #   powershell -ExecutionPolicy Bypass -File build.ps1
 #   powershell -ExecutionPolicy Bypass -File build.ps1 -SkipTests
 #   powershell -ExecutionPolicy Bypass -File build.ps1 -Configuration Debug
+#   powershell -ExecutionPolicy Bypass -File build.ps1 -SkipMsi            # 只出 dist，不打 MSI
+#   powershell -ExecutionPolicy Bypass -File installer\build-msi.ps1 -IncludeVideoDownload   # 带视频下载的完整版安装包
 param(
     [string]$Configuration = 'Release',
     [switch]$SkipTests,
     [switch]$SkipPublish,
-    [switch]$SkipVideoBundling
+    [switch]$SkipVideoBundling,
+    [switch]$SkipMsi
 )
 
 $ErrorActionPreference = 'Stop'
@@ -32,7 +36,7 @@ function Assert-ExitCode([string]$what) {
     if ($LASTEXITCODE -ne 0) { throw ($what + ' 失败（退出码 ' + $LASTEXITCODE + '）') }
 }
 
-Step '1/4 准备图标'
+Step '1/5 准备图标'
 if (-not (Test-Path $icon)) {
     & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tools\make-icon.ps1')
     Assert-ExitCode '生成图标'
@@ -40,12 +44,12 @@ if (-not (Test-Path $icon)) {
     Write-Host ('已存在：' + $icon)
 }
 
-Step ('2/4 编译解决方案（' + $Configuration + '）')
+Step ('2/5 编译解决方案（' + $Configuration + '）')
 & dotnet build $solution -c $Configuration --nologo
 Assert-ExitCode '编译'
 
 if (-not $SkipTests) {
-    Step '3/4 运行自测'
+    Step '3/5 运行自测'
 
     # LTFC：界面/设置/模块管理自测
     $ltfcSelfTest = Join-Path $root ('src\LTFC\LTFC.SelfTest\bin\' + $Configuration + '\net48\LTFC.SelfTest.exe')
@@ -66,11 +70,11 @@ if (-not $SkipTests) {
     }
 
 } else {
-    Step '3/4 已跳过自测（-SkipTests）'
+    Step '3/5 已跳过自测（-SkipTests）'
 }
 
 if (-not $SkipPublish) {
-    Step '4/4 发布到 dist（内置全部模块，用户无需另外下载）'
+    Step '4/5 发布到 dist（内置全部模块，用户无需另外下载）'
 
     # dist 里的 LTFC 还在运行时无法覆盖（文件被占用）：先礼貌结束它自己发布出来的这份副本
     $runningFromDist = @(Get-Process -Name 'LTFC' -ErrorAction SilentlyContinue |
@@ -160,7 +164,35 @@ if (-not $SkipPublish) {
         Write-Host ('  {0,-22} {1,5} 个文件 {2,10} MB' -f $entry.Name, $entry.Count, $size)
     }
 } else {
-    Step '4/4 已跳过发布（-SkipPublish）'
+    Step '4/5 已跳过发布（-SkipPublish）'
+}
+
+if ($SkipMsi) {
+    Step '5/5 已跳过安装包（-SkipMsi）'
+} elseif ($SkipPublish) {
+    Step '5/5 已跳过安装包（没有重新发布 dist，避免用旧内容打 MSI；要打就单独运行 installer\build-msi.ps1）'
+} else {
+    Step '5/5 生成安装包（MSI → release）'
+
+    # dist 里的 LTFC 还在运行时，MSI 里的文件会被占用：和发布阶段一样先请它退出
+    $runningFromDist = @(Get-Process -Name 'LTFC' -ErrorAction SilentlyContinue |
+        Where-Object { $_.Path -and $_.Path.StartsWith($dist, [StringComparison]::OrdinalIgnoreCase) })
+    if ($runningFromDist.Count -gt 0) {
+        Write-Host ('检测到 dist 里的 LTFC 正在运行（PID ' + ($runningFromDist.Id -join ', ') + '），先结束它再打包…') -ForegroundColor Yellow
+        $runningFromDist | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 800
+    }
+
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'installer\build-msi.ps1') `
+        -Configuration $Configuration -OutputDir 'release'
+    Assert-ExitCode '生成 MSI 安装包'
+
+    $msi = @(Get-ChildItem (Join-Path $root 'release') -Filter '*.msi' -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending)
+    if ($msi.Count -gt 0) {
+        Write-Host ('安装包：' + $msi[0].FullName + '  (' + [math]::Round($msi[0].Length / 1MB, 2) + ' MB)') -ForegroundColor Green
+        Write-Host '默认覆盖安装：安装时会自动卸载旧版独立 ClassTell，再由内置模块接管（详见 installer\README.md）'
+    }
 }
 
 Write-Host ''
