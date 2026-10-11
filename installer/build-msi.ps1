@@ -204,26 +204,32 @@ if ($builtMsi.Length -lt ($minSizeMB * 1MB)) {
 }
 
 # ---------- 直接读 MSI 表（Windows Installer 自动化接口，不需要装任何东西） ----------
+# 三个坑（都踩过了）：
+#   · Record 的 StringData 是有参属性，PowerShell 直接 $rec.StringData($i) 会得到空串，
+#     必须走 GetType().InvokeMember('StringData', 'GetProperty', ..., @($i))；
+#   · View.Execute()/Close() 的返回值会混进函数的输出流，要用 $null = 接住；
+#   · 函数返回“数组的数组”会被 PowerShell 二次展开，所以这里每行拼成一个
+#     tab 分隔的字符串返回（字符串不会被再展开），调用方自行 -split。
+$sep = [char]9
 function Get-MsiRows {
     param([string]$MsiPath, [string]$Query)
     $installer = New-Object -ComObject WindowsInstaller.Installer
     $db = $installer.OpenDatabase($MsiPath, 0)      # 0 = 只读打开
-    $view = $db.OpenView($Query)
-    $view.Execute()
-    $rows = New-Object System.Collections.ArrayList
+    $view = $db.OpenView($Query)                    # 表/列名建议加反引号（Key、Value 等是 MSI SQL 保留字）
+    $null = $view.Execute()
+    $rows = @()
     while ($true) {
         $rec = $view.Fetch()
         if ($null -eq $rec) { break }
-        $values = New-Object System.Collections.ArrayList
-        for ($i = 1; $i -le $rec.FieldCount; $i++) {
-            $text = ''
-            try { $text = [string]$rec.StringData($i) } catch { $text = '<非文本>' }
-            [void]$values.Add($text)
+        $count = [int]$rec.GetType().InvokeMember('FieldCount', 'GetProperty', $null, $rec, $null)
+        $fields = @()
+        for ($i = 1; $i -le $count; $i++) {
+            $fields += [string]$rec.GetType().InvokeMember('StringData', 'GetProperty', $null, $rec, @([int]$i))
         }
-        [void]$rows.Add($values.ToArray())
+        $rows += ($fields -join $sep)
     }
-    $view.Close()
-    return ,$rows
+    $null = $view.Close()
+    return $rows
 }
 
 if (-not $SkipValidate) {
@@ -234,59 +240,79 @@ if (-not $SkipValidate) {
     $iceLines = @(Get-Content $report -Encoding UTF8 | Where-Object { $_ -match 'ICE|error|warning|validation' })
     if ($iceLines.Count -gt 0) {
         $iceLines | Select-Object -First 15 | ForEach-Object { Note $_ }
+        # ICE61 是 MajorUpgrade + AllowSameVersionUpgrades 的已知副作用（Maximum 等于当前版本），
+        # 而这正是“同版本也能覆盖重装”需要的写法，属于预期警告。
+        if ($iceLines -match 'ICE61') {
+            Note 'ICE61 属预期警告：AllowSameVersionUpgrades 需要 Maximum = 当前版本，才能覆盖同版本重装'
+        }
+        $iceErrors = @($iceLines | Where-Object { $_ -match ' error| 错误' })
+        if ($iceErrors.Count -gt 0) {
+            Write-Host ('    ICE 报错 ' + $iceErrors.Count + ' 条，请检查：' + $report) -ForegroundColor Red
+        }
     } else {
         Note 'ICE 校验没有输出（视为通过）'
     }
 
     try {
         $props = @{}
-        foreach ($row in (Get-MsiRows -MsiPath $msi -Query 'SELECT Property, Value FROM Property')) {
-            $props[$row[0]] = $row[1]
+        foreach ($row in (Get-MsiRows -MsiPath $msi -Query 'SELECT `Property`, `Value` FROM `Property`')) {
+            $cols = $row -split $sep
+            $props[$cols[0]] = $cols[1]
         }
         Note ('产品：' + $props['ProductName'] + '，版本：' + $props['ProductVersion'] +
               '，厂商：' + $props['Manufacturer'])
         Note ('安装范围：' + $props['ALLUSERS'] + '（1 = 每机器安装到 Program Files）')
         Note ('产品代码：' + $props['ProductCode'])
 
-        # 安装目录结构：只关心 Program Files\LTFC 这一支
+        # 安装目录结构：从 INSTALLFOLDER 往下遍历子树（DefaultDir 可能是“短名|长名”，取后面的长名）
         $dirMap = @{}
-        foreach ($row in (Get-MsiRows -MsiPath $msi -Query 'SELECT Directory, Directory_Parent, DefaultDir FROM Directory')) {
-            $dirMap[$row[0]] = @{ Parent = $row[1]; Name = $row[2] }
+        foreach ($row in (Get-MsiRows -MsiPath $msi -Query 'SELECT `Directory`, `Directory_Parent`, `DefaultDir` FROM `Directory`')) {
+            $cols = $row -split $sep
+            $dirMap[$cols[0]] = @{ Parent = $cols[1]; Name = $cols[2] }
         }
-        function Resolve-MsiDirPath([string]$id) {
-            $parts = New-Object System.Collections.ArrayList
+        function Get-MsiDirName([string]$id) {
+            $raw = [string]$dirMap[$id].Name
+            if ($raw.Contains('|')) { return ($raw -split '\|')[-1] }
+            return $raw
+        }
+        function Get-MsiSubPath([string]$id) {
+            $names = New-Object System.Collections.ArrayList
             $current = $id
             $guard = 0
-            while ($current -and $dirMap.ContainsKey($current) -and $guard -lt 20) {
-                [void]$parts.Insert(0, $dirMap[$current].Name)
+            while ($current -and $current -ne 'INSTALLFOLDER' -and $guard -lt 20) {
+                [void]$names.Insert(0, (Get-MsiDirName $current))
                 $current = $dirMap[$current].Parent
                 $guard++
             }
-            return ($parts -join '\')
+            if ($current -ne 'INSTALLFOLDER') { return $null }    # 不在安装目录这一支
+            return ($names -join '\')
         }
+        Note ('安装目录：C:\Program Files\' + (Get-MsiDirName 'INSTALLFOLDER') + '（INSTALLFOLDER）')
         $installDirs = @()
         foreach ($id in @($dirMap.Keys)) {
-            $path = Resolve-MsiDirPath $id
-            if ($path -like 'ProgramFiles64Folder\LTFC*') { $installDirs += $path }
+            if ($id -eq 'INSTALLFOLDER') { continue }
+            $subPath = Get-MsiSubPath $id
+            if ($subPath) { $installDirs += $subPath }
         }
         Note '安装目录结构（与发布包 dist 一致，内置模块靠它定位）：'
         $installDirs | Sort-Object | ForEach-Object { Note ('  · ' + $_) }
 
         # 文件清单：MSI 里的文件数必须与暂存目录一致
-        $msiFiles = @(Get-MsiRows -MsiPath $msi -Query 'SELECT FileName FROM File')
+        $msiFiles = @(Get-MsiRows -MsiPath $msi -Query 'SELECT `FileName` FROM `File`')
         Note ('打包文件数：MSI ' + $msiFiles.Count + ' 个 / 暂存 ' + $stagedFiles.Count + ' 个')
         if ($msiFiles.Count -ne $stagedFiles.Count) {
             Write-Host '    注意：两者数量不一致，请核对 LTFC.wxs 里的 .stage\ 通配符有没有漏目录' -ForegroundColor Yellow
         }
-        $msiFiles | Sort-Object { $_[0] } | ForEach-Object { Note ('  · ' + $_[0]) }
+        $msiFiles | Sort-Object | ForEach-Object { Note ('  · ' + $_) }
 
         # 关键的一条：Upgrade 表里必须有旧版独立 ClassTell 的 UpgradeCode
-        $upgrade = @(Get-MsiRows -MsiPath $msi -Query 'SELECT UpgradeCode, VersionMin, VersionMax, Attributes, ActionProperty FROM Upgrade')
+        $upgrade = @(Get-MsiRows -MsiPath $msi -Query 'SELECT `UpgradeCode`, `VersionMin`, `VersionMax`, `Attributes`, `ActionProperty` FROM `Upgrade`')
         $foundLegacy = $false
         foreach ($row in $upgrade) {
-            Note ('Upgrade：' + $row[0] + '  版本 ' + $row[1] + '–' + $row[2] +
-                  '  属性 ' + $row[4] + '（Attributes=' + $row[3] + '）')
-            if ($row[0] -ieq $legacyClassTellUpgradeCode) { $foundLegacy = $true }
+            $cols = $row -split $sep
+            Note ('Upgrade：' + $cols[0] + '  版本 ' + $cols[1] + '–' + $cols[2] +
+                  '  属性 ' + $cols[4] + '（Attributes=' + $cols[3] + '）')
+            if ($cols[0] -ieq $legacyClassTellUpgradeCode) { $foundLegacy = $true }
         }
         if ($foundLegacy) {
             Write-Host '    已确认：安装 LTFC 时会覆盖安装旧版独立 ClassTell（命中 Upgrade 表，先卸载旧包）' -ForegroundColor Green
@@ -296,13 +322,15 @@ if (-not $SkipValidate) {
         }
 
         # 自启动项清理（卸载时执行）是否在表里
-        $regRows = @(Get-MsiRows -MsiPath $msi -Query 'SELECT Registry, Name, Value FROM RemoveRegistry')
-        $runCleanup = @($regRows | Where-Object { $_[1] -eq 'LTFC' })
+        $regRows = @(Get-MsiRows -MsiPath $msi -Query 'SELECT `RemoveRegistry`, `Root`, `Key`, `Name` FROM `RemoveRegistry`')
+        $runCleanup = @($regRows | Where-Object { ($_ -split $sep)[3] -eq 'LTFC' })
         if ($runCleanup.Count -gt 0) { Note '已包含卸载时的自启动项清理（HKCU\...\Run\LTFC）' }
         else { Write-Host '    注意：没有找到自启动项清理条目（卸载后可能残留 HKCU\...\Run\LTFC）' -ForegroundColor Yellow }
     }
     catch {
         Write-Host ('    读 MSI 表失败（不影响安装包本身）：' + $_.Exception.Message) -ForegroundColor Yellow
+        Write-Host ('    位置：第 ' + $_.InvocationInfo.ScriptLineNumber + ' 行  ' +
+                    $_.InvocationInfo.Line.Trim()) -ForegroundColor Yellow
     }
     Note ('校验报告：' + $report)
 }
