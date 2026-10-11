@@ -114,7 +114,8 @@ LTFC 的「总设置 → AutoNotice → 打开配置文件」是直接用记事�
   “Windows Installer”服务（或重启电脑、或换 `-OutputDir`）后重建即可。脚本会主动挡掉这种“假成功”。
 * **安装完 LTFC 提示缺少 ClassTell.exe / PPTChooser.exe**
   说明打进去的目录结构不对。用 `-SkipValidate:$false`（默认）跑一次，脚本会打印 MSI 里
-  解析出来的安装目录树，应该看到 `ProgramFiles64Folder\LTFC\modules\ClassTell` 这一支。
+  解析出来的安装目录树；应该看到 `安装目录：C:\Program Files\LTFC（INSTALLFOLDER）` 下面有
+  `modules`、`modules\ClassTell`、`modules\OpenChoose`、`assets` 这几行。
 * **安装后 AutoNotice 显示没有提醒**
   正常：配置文件在 `%APPDATA%\LTFC\AutoNotice\command.txt`。打开一次
   「AutoNotice → 设置」再点“重新读取”，或直接编辑该文件。
