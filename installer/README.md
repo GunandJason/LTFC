@@ -36,6 +36,24 @@ powershell -ExecutionPolicy Bypass -File installer\build-msi.ps1 -OutputDir rele
 → 自检（必需文件、`LTFC.exe` 文件版本是否等于 `-Version`、有没有多带东西）→ 由 `license.txt` 生成 `license.rtf`
 → `wix build` → 校验（ICE + 体积/新鲜度 + 直接读 MSI 表核对安装目录、文件清单、Upgrade 表、卸载清理项）。
 
+### 安装/卸载验证（需要管理员）
+
+安装 LTFC 是每机器安装（会写 `C:\Program Files`），所以**必须在“以管理员身份运行”的 PowerShell 里**做这一步：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File installer\test-msi.ps1
+powershell -ExecutionPolicy Bypass -File installer\test-msi.ps1 -Msi release\LTFC-1.0.2_r.msi -KeepInstalled
+```
+
+它会：记录安装前的 LTFC / ClassTell 条目 → 静默安装 → 核对安装目录里的每个必需文件（含 `modules\ClassTell\ClassTell.exe`）、
+`AutoNotice\command.txt` 有没有被误装进 Program Files、旧版独立 ClassTell 是否已被卸载 → 静默卸载 →
+核对安装目录是否删除、控制面板条目是否消失、`HKCU\...\Run\LTFC` 是否被清理，最后打印“通过/失败”清单
+（日志写到 `%TEMP%\ltfc-msi-test-<时间戳>\`）。它不会运行 `LTFC.exe`，不会动个人配置。
+
+> 在未提权的会话里跑安装会失败（`msiexec` 返回 1603，日志里能看到
+> `Note: 1: 1402 ... HKLM\Software\Microsoft\Windows\CurrentVersion\Installer\Rollback\Scripts`，
+> 即无权限写 HKLM）——这是权限问题，不是安装包问题。请用管理员 PowerShell 或直接双击 MSI（走 UAC）。
+
 ## 三、安装包做了什么
 
 | 项目 | 说明 |
@@ -105,6 +123,9 @@ LTFC 的「总设置 → AutoNotice → 打开配置文件」是直接用记事�
   `license.rtf`（ASCII + `\u` 转义）提供，任何区域设置下都能正常显示。
 * **安装包太大**
   默认不含 800 MB 的视频下载；需要“完整版”时加 `-IncludeVideoDownload`。
+* **`wix msi validate` 报 `ICE61 ... The Maximum version is not less than the current product`**
+  预期警告：`MajorUpgrade` + `AllowSameVersionUpgrades="yes"` 必须让 Upgrade 记录的 Maximum 等于当前版本，
+  才能实现“同版本也能覆盖重装”。构建脚本会把它标为预期，不影响安装。
 * **改了版本号要同步的地方（4 处）**
   `src\LTFC\LTFC.Core\Ui\Theme.cs` 的 `VersionText`、`src\LTFC\LTFC.App\LTFC.App.csproj` 的
   `Version`、`LTFC.wxs` 的 `Package/@Version`、`build-msi.ps1` 的 `-Version`。
@@ -116,6 +137,7 @@ LTFC 的「总设置 → AutoNotice → 打开配置文件」是直接用记事�
 | --- | --- |
 | `LTFC.wxs` | 安装包定义（WiX v4/5 schema）：产品信息、安装目录、功能树、快捷方式、升级/卸载、`Files Include` 通配符 |
 | `build-msi.ps1` | 构建与校验脚本（暂存 → license.rtf → wix build → 读 MSI 表核对） |
+| `test-msi.ps1` | 管理员权限下的安装/卸载验证（静默装 → 核对文件与旧 ClassTell 接管 → 静默卸 → 核对清理） |
 | `license.txt` | 许可摘要（UTF-8 源文本） |
 | `license.rtf` | 由脚本生成，供安装界面的许可页显示（不需要手工维护） |
 | `.stage\`、`release\` | 暂存目录与产物目录（构建时生成，可随时删除） |
